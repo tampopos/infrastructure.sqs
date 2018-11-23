@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>Tmpps.Infrastructure.SQS</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>tampopos</Authors>
+    <Company>tampopos</Company>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.SQS" Version="3.3.3.17" />
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="Tmpps.Infrastructure.Common" Version="1.0.2" />
+  </ItemGroup>
+
+</Project>
