@@ -7,6 +7,7 @@ namespace Tmpps.Infrastructure.SQS.Interfaces
         string AwsAccessKeyId { get; }
         string AwsSecretAccessKey { get; }
         string ServiceURL { get; }
+        SQSMessageSendSetting DefaultSQSMessageSendSetting { get; }
         IDictionary<string, SQSMessageSendSetting> SQSMessageSendSettings { get; }
         IDictionary<string, SQSMessageReceiveSetting> SQSMessageReceiveSettings { get; }
 

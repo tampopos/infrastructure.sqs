@@ -8,6 +8,7 @@ using Amazon.SQS.Model;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Tmpps.Infrastructure.Common.DependencyInjection.Interfaces;
+using Tmpps.Infrastructure.Common.Foundation.Exceptions;
 using Tmpps.Infrastructure.Common.Foundation.Interfaces;
 using Tmpps.Infrastructure.Common.ValueObjects;
 using Tmpps.Infrastructure.SQS;
@@ -83,34 +84,39 @@ namespace Tmpps.Infrastructure.SQS
             {
                 return;
             }
-            var message = receiveMessageResponse.Messages.Single();
-            try
+            receiveMessageResponse.Messages.AsParallel().ForAll(async message =>
             {
-                using(var source = new CancellationTokenSource(queueInfo.VisibilityTimeout * 900))
+                var container = JsonConvert.DeserializeObject(message.Body, typeof(MessageContainer)) as MessageContainer;
+                try
                 {
-                    this.logger.LogInformation($"Receive {message.MessageId} at {DateTime.Now}");
-                    var result = await this.ExecuteAsync(message, setting, source);
-                    if (result != 0)
+                    if (container == null)
                     {
-                        this.logger.LogInformation($"Handling Error {message.MessageId} at {DateTime.Now}(code:{result})");
-                        await this.NoticeFailureAsync(setting, message);
-                        return;
+                        throw new BizLogicException($"message.Bodyのデコードに失敗しました。{message.MessageId} at {DateTime.Now}");
                     }
-                    await this.DeleteMessageAsync(setting, message);
+                    using(var source = new CancellationTokenSource(queueInfo.VisibilityTimeout * 900))
+                    {
+                        this.logger.LogInformation($"Receive {message.MessageId} at {DateTime.Now}");
+                        var result = await this.ExecuteAsync(container, setting, source);
+                        if (result != 0)
+                        {
+                            throw new BizLogicException($"Handling Error {message.MessageId} at {DateTime.Now}(code:{result})");
+                        }
+                        await this.DeleteMessageAsync(setting, message);
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                if (ex is OperationCanceledException)
+                catch (Exception ex)
                 {
-                    this.logger.LogError($"Time out {message.MessageId} at {DateTime.Now}");
+                    if (ex is OperationCanceledException)
+                    {
+                        this.logger.LogError($"Time out {message.MessageId} at {DateTime.Now}");
+                    }
+                    else
+                    {
+                        this.logger.LogError(ex, $"Error {message.MessageId} at {DateTime.Now}");
+                    }
+                    await this.NoticeFailureAsync(setting, message, container);
                 }
-                else
-                {
-                    this.logger.LogError(ex, $"Error {message.MessageId} at {DateTime.Now}");
-                }
-                await this.NoticeFailureAsync(setting, message);
-            }
+            });
         }
 
         private async Task DeleteMessageAsync(SQSMessageReceiveSetting setting, Message message, int count = 0)
@@ -132,18 +138,18 @@ namespace Tmpps.Infrastructure.SQS
             }
         }
 
-        private async Task NoticeFailureAsync(SQSMessageReceiveSetting setting, Message message, int count = 0)
+        private async Task NoticeFailureAsync(SQSMessageReceiveSetting setting, Message message, MessageContainer container, int count = 0)
         {
             try
             {
-                var delay = this.ComputeDelaySeconds(message);
+                var delay = this.ComputeDelaySeconds(message, container);
                 var changeRequest = new ChangeMessageVisibilityRequest(setting.QueueUrl, message.ReceiptHandle, delay);
                 await this.SQSClient.ChangeMessageVisibilityAsync(changeRequest);
                 this.logger.LogInformation($"Change visibility message (id:{message.MessageId})");
             }
             catch (Exception ex)
             {
-                await this.NoticeFailureAsync(setting, message, count++);
+                await this.NoticeFailureAsync(setting, message, container, count++);
                 if (count >= 10)
                 {
                     this.logger.LogCritical(ex, $"Critical Error Can't change visibility message (id:{message.MessageId})");
@@ -152,46 +158,38 @@ namespace Tmpps.Infrastructure.SQS
             }
         }
 
-        private int ComputeDelaySeconds(Message message)
+        private int ComputeDelaySeconds(Message message, MessageContainer container)
         {
-            if (!Enum.TryParse(message.MessageAttributes[SQSConstans.DelayTypeKey].StringValue, out SQSDelayType sqsDelayType) ||
-                !int.TryParse(message.MessageAttributes[SQSConstans.DurationKey].StringValue, out var duration) ||
-                !int.TryParse(message.Attributes[SQSConstans.ApproximateReceiveCountKey], out var count)
-            )
+            if (container == null || container.Duration == 0 || !int.TryParse(message.Attributes[SQSConstans.ApproximateReceiveCountKey], out var count) || count == 0)
             {
                 return 0;
             }
-            if (count == 0)
-            {
-                return 0;
-            }
-            switch (sqsDelayType)
+            switch (container.DelayType)
             {
                 case SQSDelayType.Constant:
-                    return duration;
+                    return container.Duration;
                 case SQSDelayType.LinerIncrease:
                     {
-                        var tmp = duration * (count - 1);
+                        var tmp = container.Duration * (count - 1);
                         return tmp > SQSConstans.MaxDelay ? SQSConstans.MaxDelay : tmp;
                     }
                 case SQSDelayType.ExponentialIncrease:
                     {
-                        var tmp = duration * Math.Exp(count - 1);
+                        var tmp = container.Duration * Math.Exp(count - 1);
                         return tmp > SQSConstans.MaxDelay ? SQSConstans.MaxDelay : (int) Math.Truncate(tmp);
                     }
             }
             return 0;
         }
 
-        private async Task<int> ExecuteAsync(Message message, SQSMessageReceiveSetting setting, CancellationTokenSource source)
+        private async Task<int> ExecuteAsync(MessageContainer messageContainer, SQSMessageReceiveSetting setting, CancellationTokenSource source)
         {
-            var messageName = message.MessageAttributes[SQSConstans.NameKey].StringValue;
-            if (!setting.MappingTypes.TryGetValue(messageName, out var typeName))
+            if (!setting.MappingTypes.TryGetValue(messageContainer.Name, out var typeName))
             {
-                throw new SQSReceiveSettingNotFoundException(messageName);
+                throw new SQSReceiveSettingNotFoundException(messageContainer.Name);
             }
             var type = this.typeHelper.GetType(x => x.FullName == typeName);
-            var obj = JsonConvert.DeserializeObject(message.Body, type);
+            var obj = JsonConvert.DeserializeObject(messageContainer.Body, type);
             var executerType = typeof(IMessageReceiver<>).MakeGenericType(type);
             var inheritTokenSource = new TypeValuePair(source);
             using(var scope = this.scopeProvider.BeginLifetimeScope(inheritTokenSource))
@@ -201,6 +199,7 @@ namespace Tmpps.Infrastructure.SQS
                 return await executer.ExecuteAsync();
             }
         }
+
         private async Task<GetQueueAttributesResponse> GetQueueInfoAsync(SQSMessageReceiveSetting setting)
         {
             return await this.SQSClient.GetQueueAttributesAsync(setting.QueueUrl, new List<string> { SQSConstans.VisibilityTimeoutKey }, this.tokenSource.Token);
@@ -211,10 +210,9 @@ namespace Tmpps.Infrastructure.SQS
             var receiveMessageRequest = new ReceiveMessageRequest(setting.QueueUrl)
             {
                 AttributeNames = { SQSConstans.ApproximateReceiveCountKey },
-                MessageAttributeNames = { SQSConstans.NameKey, SQSConstans.DurationKey, SQSConstans.DelayTypeKey, },
             };
 
-            return await this.SQSClient.ReceiveMessageAsync(receiveMessageRequest);
+            return await this.SQSClient.ReceiveMessageAsync(receiveMessageRequest, this.tokenSource.Token);
         }
 
         #region IDisposable Support
