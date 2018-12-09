@@ -3,7 +3,9 @@ using Amazon.SQS.Model;
 using Newtonsoft.Json;
 using Tmpps.Infrastructure.Common.Foundation.Interfaces;
 using Tmpps.Infrastructure.SQS;
+using Tmpps.Infrastructure.SQS.Exceptions;
 using Tmpps.Infrastructure.SQS.Interfaces;
+using Tmpps.Infrastructure.SQS.Models;
 
 namespace Tmpps.Infrastructure.SQS
 {

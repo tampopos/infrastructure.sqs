@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
+using Tmpps.Infrastructure.SQS.Common;
 
-namespace Tmpps.Infrastructure.SQS
+namespace Tmpps.Infrastructure.SQS.Models
 {
     public class SQSMessageSendSetting
     {

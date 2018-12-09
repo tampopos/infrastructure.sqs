@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
 
-namespace Tmpps.Infrastructure.SQS
+namespace Tmpps.Infrastructure.SQS.Models
 {
     public class SQSMessageReceiveSetting
     {

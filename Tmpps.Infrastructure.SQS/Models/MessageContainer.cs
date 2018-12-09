@@ -1,7 +1,8 @@
 using System;
 using Newtonsoft.Json;
+using Tmpps.Infrastructure.SQS.Common;
 
-namespace Tmpps.Infrastructure.SQS
+namespace Tmpps.Infrastructure.SQS.Models
 {
     public class MessageContainer
     {

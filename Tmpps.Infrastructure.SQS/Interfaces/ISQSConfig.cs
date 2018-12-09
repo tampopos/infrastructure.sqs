@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Tmpps.Infrastructure.SQS.Models;
 
 namespace Tmpps.Infrastructure.SQS.Interfaces
 {

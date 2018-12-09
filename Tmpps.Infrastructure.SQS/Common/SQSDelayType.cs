@@ -1,4 +1,4 @@
-namespace Tmpps.Infrastructure.SQS
+namespace Tmpps.Infrastructure.SQS.Common
 {
     public enum SQSDelayType
     {

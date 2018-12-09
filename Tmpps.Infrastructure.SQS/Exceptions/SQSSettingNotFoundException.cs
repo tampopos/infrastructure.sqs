@@ -1,6 +1,6 @@
 using Tmpps.Infrastructure.Common.Foundation.Exceptions.Bases;
 
-namespace Tmpps.Infrastructure.SQS
+namespace Tmpps.Infrastructure.SQS.Exceptions
 {
     public class SQSSendSettingNotFoundException : TmppsException
     {
