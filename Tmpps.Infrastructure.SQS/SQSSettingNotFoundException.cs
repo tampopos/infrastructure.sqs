@@ -4,7 +4,7 @@ namespace Tmpps.Infrastructure.SQS
 {
     public class SQSSendSettingNotFoundException : TmppsException
     {
-        public SQSSendSettingNotFoundException(string key) : base($"SQSSendSettingが存在しません。(key:{key})") { }
+        public SQSSendSettingNotFoundException(string key, string body) : base($"SQSSendSettingが存在しません。(key:{key},body:{body})") { }
     }
     public class SQSReceiveSettingNotFoundException : TmppsException
     {

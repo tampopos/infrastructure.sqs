@@ -26,7 +26,7 @@ namespace Tmpps.Infrastructure.SQS
         {
             if (!config.SQSMessageSendSettings.TryGetValue(type.FullName, out var setting))
             {
-                setting = config.DefaultSQSMessageSendSetting;
+                throw new SQSSendSettingNotFoundException(type.FullName, body);
             }
             var message = new MessageContainer(this.guidFactory.CreateNew(), setting, body);
             var sendMessageRequest = new SendMessageRequest(setting.QueueUrl, message.ToJson());
