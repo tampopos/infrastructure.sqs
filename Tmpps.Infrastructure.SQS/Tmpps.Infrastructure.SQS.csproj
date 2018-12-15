@@ -3,15 +3,13 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <PackageId>Tmpps.Infrastructure.SQS</PackageId>
-    <Version>2.2.0</Version>
     <Authors>tampopos</Authors>
     <Company>tampopos</Company>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="AWSSDK.SQS" Version="3.3.3.17" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
-    <PackageReference Include="Tmpps.Infrastructure.Common" Version="2.0.2" />
+    <PackageReference Include="Tmpps.Infrastructure.Common" Version="2.0.3" />
   </ItemGroup>
 
 </Project>

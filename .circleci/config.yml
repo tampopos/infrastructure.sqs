@@ -1,13 +1,43 @@
-version: 2
-jobs:
-  build:
+version: 2.1
+executors:
+  dotnet:
     docker:
-      - image: tampopos/node-dotnet:latest
+      - image: microsoft/dotnet:latest
+jobs:
+  test:
+    executor: dotnet
     steps:
       - checkout
       - run:
-          name: install packages
-          command: npm i
-      - run:
           name: test
-          command: npm run test
+          command: dotnet test Tmpps.Infrastructure.SQS.Tests
+  publish:
+    executor: dotnet
+    steps:
+      - checkout
+      - run:
+          name: build
+          command: dotnet build -c Release Tmpps.Infrastructure.SQS
+      - run:
+          name: pack
+          command: dotnet pack -c Release --include-source -p:PackageVersion=${CIRCLE_TAG} Tmpps.Infrastructure.SQS
+      - run:
+          name: pack
+          command: dotnet nuget push ./Tmpps.Infrastructure.SQS/bin/Release/Tmpps.Infrastructure.SQS.${CIRCLE_TAG}.nupkg -k ${NUGET_API_KEY} -s https://api.nuget.org/v3/index.json
+workflows:
+  version: 2
+  build:
+    jobs:
+      - test:
+          filters:
+            tags:
+              only: /.*/
+      - publish:
+          context: nuget-publish
+          requires:
+            - test
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^[0-9]+\.[0-9]+\.[0-9]+$/
